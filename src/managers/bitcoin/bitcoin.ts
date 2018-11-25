@@ -6,7 +6,7 @@ import * as inv from './messages/inv';
 import * as pingPong from './messages/ping-pong';
 import * as addr from './messages/addr';
 import * as getData from './messages/getData';
-import { messageChecksum, debounce, getNonce } from '../../utils';
+import { messageChecksum, throttle, getNonce } from '../../utils';
 import { Service } from './constants';
 import { Magic } from '../../constants/bitcoin.constants';
 
@@ -52,7 +52,7 @@ export class BitcoinPeerManager extends EventEmitter {
   private connectTimeout: NodeJS.Timeout;
   private pingPongTimeout: NodeJS.Timeout;
   private terminateTimeout: NodeJS.Timeout;
-  private debouncedPing: CancelableFunction;
+  private throttledPing: Function;
   private currentPeer: Peer;
   private iterate: IterableIterator<void>;
   private magicBytes: Magic;
@@ -75,7 +75,7 @@ export class BitcoinPeerManager extends EventEmitter {
     this.nonce = getNonce();
     this.trackVerack();
     this.once(bitcoinCommands.version, () => this.send(null, bitcoinCommands.verack));
-    this.debouncedPing = debounce(this.updatePing, 30000);
+    this.throttledPing = throttle(this.updatePing, 20000);
 
     const versionPayload = version.makeBy(this.Message, {
       version: 70015,
@@ -114,12 +114,12 @@ export class BitcoinPeerManager extends EventEmitter {
       }
     });
 
-    this.on(bitcoinCommands.inv, ({ payload: invData, bufferPayload }) => {
-      // const getDataMsg = getData.makeBy(this.Message, invData)
-      // currently get all info about txs and blocks
-      // TODO: add filter
-      this.send(bufferPayload, bitcoinCommands.getdata);
-    });
+    // this.on(bitcoinCommands.inv, ({ payload: invData, bufferPayload }) => {
+    //   // const getDataMsg = getData.makeBy(this.Message, invData)
+    //   // currently get all info about txs and blocks
+    //   // TODO: add filter
+    //   this.send(bufferPayload, bitcoinCommands.getdata);
+    // });
   }
 
   private send(payloadData: Buffer, command = bitcoinCommands.version) {
@@ -147,9 +147,9 @@ export class BitcoinPeerManager extends EventEmitter {
     clearTimeout(this.pingPongTimeout);
     this.pingPongTimeout = setTimeout(() => {
       this.ping();
-      this.terminateTimeout = setTimeout(this.terminateCurrentPeer, 5000);
+      this.terminateTimeout = setTimeout(this.terminateCurrentPeer, 1000);
       return this.terminateTimeout;
-    }, 20000);
+    }, 25000);
   }
 
   @bind
@@ -168,6 +168,7 @@ export class BitcoinPeerManager extends EventEmitter {
     console.log('handleClose');
     setImmediate(() => {
       this.clearTimers();
+      this.currentPeer.removeAllListeners();
       this.iterate.next();
     });
   }
@@ -179,7 +180,6 @@ export class BitcoinPeerManager extends EventEmitter {
     clearTimeout(this.verackTimeout);
     clearTimeout(this.pingPongTimeout);
     clearTimeout(this.terminateTimeout);
-    this.debouncedPing.cancel && this.debouncedPing.cancel();
   }
 
   @bind
@@ -194,7 +194,7 @@ export class BitcoinPeerManager extends EventEmitter {
   @bind
   private handleMessage({ data }: PeerMessage) {
     console.log('handleMessage');
-    this.debouncedPing();
+    this.throttledPing();
     const { command, bufferPayload } = head.parse(this.Parser, data);
     const payload = payloadParserByCommands[command] ? payloadParserByCommands[command](this.Parser, bufferPayload) : '';
     console.log(`emit command ${command}, payload: ${JSON.stringify(payload)}`);

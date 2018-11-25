@@ -1,4 +1,4 @@
-import { Int, Str } from '../../../protocol-types/bitcoin';
+import { Int, Str } from '../../../protocol/bitcoin';
 import { messageChecksum, hexToString } from '../../../utils';
 
 type messageHead = {
