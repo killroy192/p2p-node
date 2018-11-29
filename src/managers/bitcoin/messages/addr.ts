@@ -1,6 +1,6 @@
 'use strict';
 import { parseIP } from '../helpers';
-import { Int } from '../../../protocol-types/bitcoin';
+import { Int } from '../../../protocol/bitcoin';
 
 const mainOrder = ['addresses'];
 
@@ -22,9 +22,9 @@ export function parse(Parser: DIParser, data: Buffer) {
         }))
     };
 
-    const parser = new Parser(mainOrder, offset);
-    const result = parser.parse(template, data);
-    return Object.assign(result, {
-        time: new Date(<number>result.time)
-    });
+    const parser = new Parser(mainOrder);
+    const { addresses } = parser.parse(template, data.slice(Math.floor(offset / 8)));
+    return (<ParseOutput[]>addresses).map((address) => Object.assign(address, {
+        time: new Date(<number>address.time)
+    }))
 }

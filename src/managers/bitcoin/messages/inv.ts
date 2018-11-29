@@ -1,4 +1,4 @@
-import { Int, Str } from '../../../protocol-types/bitcoin';
+import { Int, Str } from '../../../protocol/bitcoin';
 
 const mainOrder = ['inventory'];
 

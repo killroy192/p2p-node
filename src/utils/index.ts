@@ -8,30 +8,40 @@ export const messageChecksum = (message: Buffer): Buffer => {
     return Buffer.from(dSha256(message)).slice(0, 4);
 };
 
-export const debounce = (f: Function, ms: number) => {
+export const throttle = (func: Function, ms: number) => {
 
-    let timer: NodeJS.Timeout = null;
+    let isThrottled = false;
+    let savedArgs: IArguments;
+    let savedThis: any;
 
-    const internal: CancelableFunction = function (...args: any[]) {
-        const onComplete = () => {
-            f.apply(this, args);
-            timer = null;
-        };
+    function wrapper() {
 
-        if (timer) {
-            clearTimeout(timer);
+        if (isThrottled) {
+            savedArgs = arguments;
+            savedThis = this;
+            return;
         }
 
-        timer = setTimeout(onComplete, ms);
-    };
-    internal.cancel = () => clearTimeout(timer);
-    return internal;
-};
+        func.apply(this, arguments);
+
+        isThrottled = true;
+
+        setTimeout(function () {
+            isThrottled = false;
+            if (savedArgs) {
+                wrapper.apply(savedThis, savedArgs);
+                savedArgs = savedThis = null;
+            }
+        }, ms);
+    }
+
+    return wrapper;
+}
 
 export const getNonce = (): number => {
     let num;
     while (!num) {
-        num = Math.random() * Math.pow(2, 32);
+        num = Math.random() * Math.pow(2, 32) - 1;
     }
     return Math.floor(num);
 };

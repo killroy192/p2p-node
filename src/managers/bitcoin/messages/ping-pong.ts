@@ -1,4 +1,4 @@
-import { Int } from '../../../protocol-types/bitcoin';
+import { Int } from '../../../protocol/bitcoin';
 
 type PingPongMessage = {
     nonce: number
